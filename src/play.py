@@ -11,7 +11,7 @@ from src.buffer.episode_rollout import EpisodeRollout
 @click.command()
 @click.argument('policy_file', type=str)
 @click.option('--seed', type=int, default=0)
-@click.option('--n_test_rollouts', type=int, default=10)
+@click.option('--n_test_rollouts', type=int, default=100)
 @click.option('--render', type=int, default=1)
 def main(policy_file, seed, n_test_rollouts, render):
     set_global_seeds(seed)
@@ -39,7 +39,7 @@ def main(policy_file, seed, n_test_rollouts, render):
         'render': bool(render),
     }
 
-    for name in ['T', 'gamma', 'noise_eps', 'random_eps']:
+    for name in ['max_episode_steps', 'gamma', 'noise_eps', 'random_eps']:
         eval_params[name] = params[name]
 
     evaluator = EpisodeRollout(params['make_env'], policy, dims, logger, **eval_params)

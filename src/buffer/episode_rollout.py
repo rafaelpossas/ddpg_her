@@ -164,7 +164,15 @@ class EpisodeRollout(object):
 
         # stats
         successful = np.array(successes)[-1, :]
-        mean_reward = sum([rewards[i][0]+rewards[i][1] for i in range(len(rewards))])/self.rollout_batch_size
+        total_rewards = 0
+        for i in range(self.rollout_batch_size):
+            for j in range(len(rewards)):
+                total_rewards += rewards[j][i]
+
+        mean_reward = total_rewards / self.rollout_batch_size
+
+        # mean_reward = sum([rewards[i][0]+rewards[i][1] for i, j in zip(range(len(rewards), range(self.rollout_batch_size)))])\
+        #               /self.rollout_batch_size
         assert successful.shape == (self.rollout_batch_size,)
         success_rate = np.mean(successful)
         self.success_history.append(success_rate)
