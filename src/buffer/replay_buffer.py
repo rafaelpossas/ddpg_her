@@ -44,12 +44,12 @@ class ReplayBuffer:
             for key in self.buffers.keys():
                 buffers[key] = self.buffers[key][:self.current_size]
 
-        buffers['o_2'] = buffers['o'][:, 1:, :]
-        buffers['ag_2'] = buffers['ag'][:, 1:, :]
+        buffers['observation_2'] = buffers['observation'][:, 1:, :]
+        buffers['achieved_goal_2'] = buffers['achieved_goal'][:, 1:, :]
 
         transitions = self.sample_transitions(buffers, batch_size)
 
-        for key in (['r', 'o_2', 'ag_2'] + list(self.buffers.keys())):
+        for key in (['reward', 'observation_2', 'achieved_goal_2'] + list(self.buffers.keys())):
             assert key in transitions, "key %s missing from transitions" % key
 
         return transitions

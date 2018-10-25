@@ -104,7 +104,7 @@ def flatten_grads(var_list, grads):
                       for (v, grad) in zip(var_list, grads)], 0)
 
 
-def nn(input, layers_sizes, reuse=None, flatten=False, name=""):
+def create_fully_connected_nn(input, layers_sizes, reuse=None, flatten=False, name=""):
     """Creates a simple neural network
     """
     for i, size in enumerate(layers_sizes):
@@ -177,7 +177,7 @@ def convert_episode_to_batch_major(episode):
 def transitions_in_episode_batch(episode_batch):
     """Number of transitions in a given episode batch.
     """
-    shape = episode_batch['u'].shape
+    shape = episode_batch['action'].shape
     return shape[0] * shape[1]
 
 

@@ -17,7 +17,7 @@ DEFAULT_PARAMS = {
     # ddpg
     'layers': 3,  # number of layers in the critic/actor networks
     'hidden': 256,  # number of neurons in each hidden layers
-    'network_class': 'baselines.her.actor_critic:ActorCritic',
+    'network_class': 'models.actor_critic:ActorCritic',
     'Q_lr': 0.001,  # critic learning rate
     'pi_lr': 0.001,  # actor learning rate
     'buffer_size': int(1E6),  # for experience replay
@@ -110,9 +110,9 @@ def configure_dims(params):
     obs, _, _, info = env.step(env.action_space.sample())
 
     dims = {
-        'o': obs['observation'].shape[0],
-        'u': env.action_space.shape[0],
-        'g': obs['desired_goal'].shape[0],
+        'observation': obs['observation'].shape[0],
+        'action': env.action_space.shape[0],
+        'goal': obs['desired_goal'].shape[0],
     }
     for key, value in info.items():
         value = np.array(value)

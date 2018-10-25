@@ -40,9 +40,9 @@ class EpisodeRollout(object):
         self.reward_history = deque(maxlen=history_len)
 
         self.n_episodes = 0
-        self.g = np.empty((self.rollout_batch_size, self.dims['g']), np.float32)  # goals
-        self.initial_o = np.empty((self.rollout_batch_size, self.dims['o']), np.float32)  # observations
-        self.initial_ag = np.empty((self.rollout_batch_size, self.dims['g']), np.float32)  # achieved goals
+        self.g = np.empty((self.rollout_batch_size, self.dims['goal']), np.float32)  # goals
+        self.initial_o = np.empty((self.rollout_batch_size, self.dims['observation']), np.float32)  # observations
+        self.initial_ag = np.empty((self.rollout_batch_size, self.dims['goal']), np.float32)  # achieved goals
         self.reset_all_rollouts()
         self.clear_history()
 
@@ -68,8 +68,8 @@ class EpisodeRollout(object):
         self.reset_all_rollouts()
 
         # compute observations
-        o = np.empty((self.rollout_batch_size, self.dims['o']), np.float32)  # observations
-        ag = np.empty((self.rollout_batch_size, self.dims['g']), np.float32)  # achieved goals
+        o = np.empty((self.rollout_batch_size, self.dims['observation']), np.float32)  # observations
+        ag = np.empty((self.rollout_batch_size, self.dims['goal']), np.float32)  # achieved goals
         o[:] = self.initial_o
         ag[:] = self.initial_ag
 
@@ -78,12 +78,26 @@ class EpisodeRollout(object):
         info_values = [np.empty((self.max_episode_steps, self.rollout_batch_size, self.dims['info_' + key]), np.float32)
                        for key in self.info_keys]
         Qs = []
+
+        def gaussian_eps_greedy_noise(action, noise_eps, random_eps, max_u):
+
+            def random_action(n):
+                return np.random.uniform(low=-max_u, high=max_u, size=(n, action.shape[1]))
+
+            noise = noise_eps * max_u * np.random.randn(*action.shape)  # gaussian noise
+            action += noise
+            action = np.clip(action, -max_u, max_u)
+            action += np.random.binomial(1, random_eps, action.shape[0]).reshape(-1, 1) \
+                      * (random_action(action.shape[0]) - action)  # eps-greedy
+            return action
+
         for t in range(self.max_episode_steps):
             policy_output = self.policy.get_actions(o, ag, self.g,
-                compute_Q=self.compute_Q,
-                noise_eps=self.noise_eps if not self.exploit else 0.,
-                random_eps=self.random_eps if not self.exploit else 0.,
-                use_target_net=self.use_target_net)
+                                                    compute_Q=self.compute_Q,
+                                                    noise_eps=self.noise_eps if not self.exploit else 0.,
+                                                    random_eps=self.random_eps if not self.exploit else 0.,
+                                                    use_target_net=self.use_target_net,
+                                                    noise_fn=gaussian_eps_greedy_noise)
 
             if self.compute_Q:
                 u, Q = policy_output
@@ -95,8 +109,8 @@ class EpisodeRollout(object):
                 # The non-batched case should still have a reasonable shape.
                 u = u.reshape(1, -1)
 
-            o_new = np.empty((self.rollout_batch_size, self.dims['o']))
-            ag_new = np.empty((self.rollout_batch_size, self.dims['g']))
+            o_new = np.empty((self.rollout_batch_size, self.dims['observation']))
+            ag_new = np.empty((self.rollout_batch_size, self.dims['goal']))
             success = np.zeros(self.rollout_batch_size)
             r = np.zeros(self.rollout_batch_size)
             # compute new states and observations
@@ -140,10 +154,10 @@ class EpisodeRollout(object):
         achieved_goals.append(ag.copy())
         self.initial_o[:] = o
 
-        episode = dict(o=obs,
-                       u=acts,
-                       g=goals,
-                       ag=achieved_goals)
+        episode = dict(observation=obs,
+                       action=acts,
+                       goal=goals,
+                       achieved_goal=achieved_goals)
 
         for key, value in zip(self.info_keys, info_values):
             episode['info_{}'.format(key)] = value

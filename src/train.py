@@ -4,11 +4,13 @@ import src.config as config
 import click
 import numpy as np
 import json
+import datetime
+import src.utils.tf_util as U
 
 from mpi4py import MPI
 from src.utils import logger
 from src.utils.util import set_global_seeds
-from src.utils.util import mpi_moments, mpi_average
+from src.utils.util import mpi_average
 
 
 from src.buffer.episode_rollout import EpisodeRollout
@@ -19,9 +21,7 @@ from src.buffer.her import HindisghtExperienceReplay
 
 from src.models.ddpg import DDPG
 
-from src.config import cached_make_env, simple_goal_subtract
-
-import src.utils.tf_util as U
+from src.config import simple_goal_subtract
 
 
 def train(policy, rollout_worker, evaluator,
@@ -66,12 +66,14 @@ def train(policy, rollout_worker, evaluator,
 
         # save the policy if it's better than the previous ones
         success_rate = mpi_average(evaluator.current_success_rate())
+
         if rank == 0 and success_rate >= best_success_rate and save_policies:
             best_success_rate = success_rate
             logger.info(
                 'New best success rate: {}. Saving policy to {} ...'.format(best_success_rate, best_policy_path))
             evaluator.save_policy(best_policy_path)
             evaluator.save_policy(latest_policy_path)
+
         if rank == 0 and policy_save_interval > 0 and epoch % policy_save_interval == 0 and save_policies:
             policy_path = periodic_policy_path.format(epoch)
             logger.info('Saving periodic policy to {} ...'.format(policy_path))
@@ -80,6 +82,7 @@ def train(policy, rollout_worker, evaluator,
         # make sure that different threads have different seeds
         local_uniform = np.random.uniform(size=(1,))
         root_uniform = local_uniform.copy()
+
         MPI.COMM_WORLD.Bcast(root_uniform, root=0)
         if rank != 0:
             assert local_uniform[0] != root_uniform[0]
@@ -106,6 +109,9 @@ def set_params(env, replay_strategy, override_params):
 def launch(env, logdir, n_epochs, num_cpu, seed,
            replay_strategy, policy_save_interval, clip_return,
            override_params={}, save_policies=True):
+
+    now = datetime.datetime.now()
+    logdir += "/" + env + "/" + str(now.strftime("%Y-%m-%d-%H:%M"))
 
     # Fork for multi-CPU MPI implementation.
     rank = MPI.COMM_WORLD.Get_rank()
@@ -168,7 +174,6 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
     # DDPG agent
     ddpg_params = params['ddpg_params']
 
-
     ddpg_params.update({'input_dims': dims.copy(),  # agent takes an input observations
                         'max_episode_steps': params['max_episode_steps'],
                         'clip_pos_returns': True,  # clip positive returns
@@ -205,7 +210,7 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
 @click.command()
 @click.option('--env', type=str, default='FetchPush-v1',
               help='the name of the OpenAI Gym environment that you want to train on')
-@click.option('--logdir', type=str, default=None,
+@click.option('--logdir', type=str, default="logs",
               help='the path to where logs and policy pickles should go. If not specified, creates a folder in /tmp/')
 @click.option('--n_epochs', type=int, default=50, help='the number of training epochs to run')
 @click.option('--num_cpu', type=int, default=1, help='the number of CPU cores to use (using MPI)')

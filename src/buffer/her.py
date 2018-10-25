@@ -33,8 +33,8 @@ class HindisghtExperienceReplay(object):
         def _sample_her_transitions(episode_batch, batch_size_in_transitions):
             """episode_batch is {key: array(buffer_size x T x dim_key)}
             """
-            T = episode_batch['u'].shape[1]
-            rollout_batch_size = episode_batch['u'].shape[0]
+            T = episode_batch['action'].shape[1]
+            rollout_batch_size = episode_batch['action'].shape[0]
             batch_size = batch_size_in_transitions
 
             # Select which episodes and time steps to use.
@@ -53,8 +53,8 @@ class HindisghtExperienceReplay(object):
             # Replace goal with achieved goal but only for the previously-selected
             # HER transitions (as defined by her_indexes). For the other transitions,
             # keep the original goal.
-            future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-            transitions['g'][her_indexes] = future_ag
+            future_ag = episode_batch['achieved_goal'][episode_idxs[her_indexes], future_t]
+            transitions['goal'][her_indexes] = future_ag
 
             # Reconstruct info dictionary for reward  computation.
             info = {}
@@ -63,14 +63,14 @@ class HindisghtExperienceReplay(object):
                     info[key.replace('info_', '')] = value
 
             # Re-compute reward since we may have substituted the goal.
-            reward_params = {k: transitions[k] for k in ['ag_2', 'g']}
+            reward_params = {k: transitions[k] for k in ['achieved_goal_2', 'goal']}
             reward_params['info'] = info
-            transitions['r'] = self.reward_fn(reward_params['ag_2'], reward_params['g'], reward_params['info'])
+            transitions['reward'] = self.reward_fn(reward_params['achieved_goal_2'], reward_params['goal'], reward_params['info'])
 
             transitions = {k: transitions[k].reshape(batch_size, *transitions[k].shape[1:])
                            for k in transitions.keys()}
 
-            assert(transitions['u'].shape[0] == batch_size_in_transitions)
+            assert(transitions['action'].shape[0] == batch_size_in_transitions)
 
             return transitions
 
