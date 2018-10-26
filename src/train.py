@@ -208,7 +208,7 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
 
 
 @click.command()
-@click.option('--env', type=str, default='FetchPush-v1',
+@click.option('--env', type=str, default='FetchSlide-v1',
               help='the name of the OpenAI Gym environment that you want to train on')
 @click.option('--logdir', type=str, default="logs",
               help='the path to where logs and policy pickles should go. If not specified, creates a folder in /tmp/')

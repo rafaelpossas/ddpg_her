@@ -46,11 +46,19 @@ class EpisodeRollout(object):
         self.reset_all_rollouts()
         self.clear_history()
 
-    def reset_rollout(self, i):
+    def reset_rollout(self, i, random_physics=True, lower_bound=0.01, upper_bound=0.1):
         """Resets the `i`-th rollout environment, re-samples a new goal, and updates the `initial_o`
         and `g` arrays accordingly.
         """
+        if random_physics:
+            new_value = np.random.uniform(lower_bound, upper_bound)
+            self.envs[i].env.sim.model.geom_friction[22, 0] = new_value
+            self.envs[i].env.sim.model.geom_friction[23, 0] = new_value
+        #self.envs[i].env.sim.model.body_mass[32] = 15
+
         obs = self.envs[i].reset()
+
+
         self.initial_o[i] = obs['observation']
         self.initial_ag[i] = obs['achieved_goal']
         self.g[i] = obs['desired_goal']
