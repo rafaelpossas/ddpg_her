@@ -11,7 +11,9 @@ class EpisodeRollout(object):
     @store_args
     def __init__(self, make_env, policy, dims, logger, max_episode_steps, rollout_batch_size=1,
                  exploit=False, use_target_net=False, compute_Q=False, noise_eps=0,
-                 random_eps=0, history_len=100, render=False, **kwargs):
+                 random_eps=0, history_len=100, render=False, random_physics=False,
+                 lower_bound=0.1, upper_bound=1.5,randomise_every_n_epoch=25,
+                 **kwargs):
         """Rollout worker generates experience by interacting with one or many environments.
 
         Args:
@@ -38,7 +40,7 @@ class EpisodeRollout(object):
         self.success_history = deque(maxlen=history_len)
         self.Q_history = deque(maxlen=history_len)
         self.reward_history = deque(maxlen=history_len)
-
+        self.friction_coefficients = []
         self.n_episodes = 0
         self.g = np.empty((self.rollout_batch_size, self.dims['goal']), np.float32)  # goals
         self.initial_o = np.empty((self.rollout_batch_size, self.dims['observation']), np.float32)  # observations
@@ -46,19 +48,25 @@ class EpisodeRollout(object):
         self.reset_all_rollouts()
         self.clear_history()
 
-    def reset_rollout(self, i, random_physics=True, lower_bound=0.01, upper_bound=0.1):
+    def set_physics(self, epoch_num=None):
+        rnd_value = np.random.uniform(self.lower_bound, self.upper_bound)
+
+        if self.random_physics and epoch_num is not None and epoch_num % self.randomise_every_n_epoch == 0:
+            self.logger.info('Epoch %s Generating new friction coefficient: %.2f' % (epoch_num, rnd_value))
+            self.friction_coefficients.append(rnd_value)
+
+            for i in range(len(self.envs)):
+                self.envs[i].env.sim.model.geom_friction[22, 0] = rnd_value
+                self.envs[i].env.sim.model.geom_friction[23, 0] = rnd_value
+        else:
+            self.friction_coefficients.append(self.envs[0].env.sim.model.geom_friction[22, 0])
+
+    def reset_rollout(self, i):
         """Resets the `i`-th rollout environment, re-samples a new goal, and updates the `initial_o`
         and `g` arrays accordingly.
         """
-        if random_physics:
-            new_value = np.random.uniform(lower_bound, upper_bound)
-            self.envs[i].env.sim.model.geom_friction[22, 0] = new_value
-            self.envs[i].env.sim.model.geom_friction[23, 0] = new_value
-        #self.envs[i].env.sim.model.body_mass[32] = 15
 
         obs = self.envs[i].reset()
-
-
         self.initial_o[i] = obs['observation']
         self.initial_ag[i] = obs['achieved_goal']
         self.g[i] = obs['desired_goal']
@@ -204,6 +212,9 @@ class EpisodeRollout(object):
     def current_mean_Q(self):
         return np.mean(self.Q_history)
 
+    def current_mean_friction(self):
+        return np.mean(self.friction_coefficients)
+
     def save_policy(self, path):
         """Pickles the current policy for later inspection.
         """
@@ -219,6 +230,7 @@ class EpisodeRollout(object):
         if self.compute_Q:
             logs += [('mean_Q', np.mean(self.Q_history))]
         logs += [('episode', self.n_episodes)]
+        logs += [('friction', self.current_mean_friction())]
 
         if prefix is not '' and not prefix.endswith('/'):
             return [(prefix + '/' + key, val) for key, val in logs]

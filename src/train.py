@@ -39,6 +39,7 @@ def train(policy, rollout_worker, evaluator,
     for epoch in range(n_epochs):
         # train
         rollout_worker.clear_history()
+        rollout_worker.set_physics(epoch)
         for _ in range(n_cycles):
             episode = rollout_worker.generate_rollouts()
             policy.store_episode(episode)
@@ -48,6 +49,7 @@ def train(policy, rollout_worker, evaluator,
 
         # test
         evaluator.clear_history()
+        evaluator.set_physics()
         for _ in range(n_test_rollouts):
             evaluator.generate_rollouts()
 
@@ -107,7 +109,8 @@ def set_params(env, replay_strategy, override_params):
 
 
 def launch(env, logdir, n_epochs, num_cpu, seed,
-           replay_strategy, policy_save_interval, clip_return,
+           replay_strategy, policy_save_interval, clip_return, random_physics,
+           lower_bound, upper_bound, randomise_every_n_epoch,
            override_params={}, save_policies=True):
 
     now = datetime.datetime.now()
@@ -138,6 +141,10 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
         'use_demo_states': True,
         'compute_Q': False,
         'max_episode_steps': params['max_episode_steps'],
+        'random_physics': random_physics,
+        'rnd_phys_lower_bound': lower_bound,
+        'rnd_phys_upper_bound': upper_bound,
+        'randomise_every_n_epoch': randomise_every_n_epoch
     }
 
     eval_params = {
@@ -146,6 +153,10 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
         'use_demo_states': False,
         'compute_Q': True,
         'max_episode_steps': params['max_episode_steps'],
+        'random_physics': False,
+        'rnd_phys_lower_bound': lower_bound,
+        'rnd_phys_upper_bound': upper_bound,
+        'randomise_every_n_epoch': randomise_every_n_epoch
     }
 
     dims = config.configure_dims(params)
@@ -208,8 +219,14 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
 
 
 @click.command()
-@click.option('--env', type=str, default='FetchSlide-v1',
+@click.option('--random_physics', type=bool, default=True)
+@click.option('--lower_bound', type=float, default=0.1)
+@click.option('--upper_bound', type=float, default=0.1)
+@click.option('--randomise_every_n_epoch', type=int, default=25)
+
+@click.option('--env', type=str, default='FetchPush-v1',
               help='the name of the OpenAI Gym environment that you want to train on')
+
 @click.option('--logdir', type=str, default="logs",
               help='the path to where logs and policy pickles should go. If not specified, creates a folder in /tmp/')
 @click.option('--n_epochs', type=int, default=50, help='the number of training epochs to run')
