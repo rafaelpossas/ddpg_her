@@ -1,5 +1,10 @@
 import os
 import sys
+
+py_path = os.path.split(os.getcwd())[0]
+if py_path not in sys.path:
+    sys.path.append(py_path)
+    
 import src.config as config
 import click
 import numpy as np
@@ -221,7 +226,7 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
 @click.command()
 @click.option('--random_physics', type=bool, default=True)
 @click.option('--lower_bound', type=float, default=0.1)
-@click.option('--upper_bound', type=float, default=0.1)
+@click.option('--upper_bound', type=float, default=2.0)
 @click.option('--randomise_every_n_epoch', type=int, default=25)
 
 @click.option('--env', type=str, default='FetchPush-v1',
@@ -229,7 +234,7 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
 
 @click.option('--logdir', type=str, default="logs",
               help='the path to where logs and policy pickles should go. If not specified, creates a folder in /tmp/')
-@click.option('--n_epochs', type=int, default=50, help='the number of training epochs to run')
+@click.option('--n_epochs', type=int, default=5000, help='the number of training epochs to run')
 @click.option('--num_cpu', type=int, default=1, help='the number of CPU cores to use (using MPI)')
 @click.option('--seed', type=int, default=0,
               help='the random seed used to seed both the environment and the training code')

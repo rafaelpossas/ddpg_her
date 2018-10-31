@@ -1,7 +1,7 @@
 import numpy as np
 import gym
 
-from baselines import logger
+from src.utils import logger
 
 
 DEFAULT_ENV_PARAMS = {

@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 from mpi4py import MPI
 
-from baselines.common import tf_util as U
+from src.utils import tf_util as U
 
 def mpi_average(value):
     if value == []:
