@@ -235,7 +235,7 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
 @click.option('--logdir', type=str, default="logs",
               help='the path to where logs and policy pickles should go. If not specified, creates a folder in /tmp/')
 @click.option('--n_epochs', type=int, default=5000, help='the number of training epochs to run')
-@click.option('--num_cpu', type=int, default=1, help='the number of CPU cores to use (using MPI)')
+@click.option('--num_cpu', type=int, default=4, help='the number of CPU cores to use (using MPI)')
 @click.option('--seed', type=int, default=0,
               help='the random seed used to seed both the environment and the training code')
 @click.option('--policy_save_interval', type=int, default=5,
