@@ -1,3 +1,10 @@
+import os
+import sys
+
+py_path = os.path.split(os.getcwd())[0]
+if py_path not in sys.path:
+    sys.path.append(py_path)
+
 import click
 import numpy as np
 import pickle
@@ -10,8 +17,8 @@ from src.buffer.episode_rollout import EpisodeRollout
 
 @click.command()
 @click.argument('policy_file', type=str)
-@click.option('--seed', type=int, default=0)
-@click.option('--n_test_rollouts', type=int, default=100)
+@click.option('--seed', type=int, default=10)
+@click.option('--n_test_rollouts', type=int, default=1000)
 @click.option('--render', type=int, default=1)
 def main(policy_file, seed, n_test_rollouts, render):
     set_global_seeds(seed)
@@ -44,11 +51,24 @@ def main(policy_file, seed, n_test_rollouts, render):
 
     evaluator = EpisodeRollout(params['make_env'], policy, dims, logger, **eval_params)
     evaluator.seed(seed)
+    friction_arr = [0.05, 0.6, 0.1, 0.8, 0.2, 1.0, 0.25]
 
     # Run evaluation.
     evaluator.clear_history()
+    friction_idx = 0
+    all_episodes = []
     for _ in range(n_test_rollouts):
-        evaluator.generate_rollouts()
+
+        # if friction_idx == len(friction_arr):
+        #     friction_idx = 0
+        # if _ % 5 == 0:
+        #     evaluator.seed(seed)
+        #     friction = friction_arr[friction_idx]
+        #     friction_idx += 1
+        #     evaluator.set_physics(param=friction)
+        episode = evaluator.generate_rollouts()
+        all_episodes.append(episode)
+
 
     # record logs
     for key, val in evaluator.logs('test'):

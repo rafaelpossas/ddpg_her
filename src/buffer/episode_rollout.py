@@ -12,7 +12,7 @@ class EpisodeRollout(object):
     def __init__(self, make_env, policy, dims, logger, max_episode_steps, rollout_batch_size=1,
                  exploit=False, use_target_net=False, compute_Q=False, noise_eps=0,
                  random_eps=0, history_len=100, render=False, random_physics=False,
-                 lower_bound=0.1, upper_bound=1.5,randomise_every_n_epoch=25,
+                 lower_bound=0.1, upper_bound=1.0,randomise_every_n_epoch=25,
                  **kwargs):
         """Rollout worker generates experience by interacting with one or many environments.
 
@@ -48,8 +48,15 @@ class EpisodeRollout(object):
         self.reset_all_rollouts()
         self.clear_history()
 
-    def set_physics(self, epoch_num=None):
-        rnd_value = np.random.uniform(self.lower_bound, self.upper_bound)
+    def set_physics(self, epoch_num=None, prior=None, param=0.3):
+        if param is not None:
+            for i in range(len(self.envs)):
+                self.envs[i].env.sim.model.geom_friction[22, 0] = param
+                self.envs[i].env.sim.model.geom_friction[23, 0] = param
+        if prior is None:
+            rnd_value = np.random.uniform(self.lower_bound, self.upper_bound)
+        else:
+            rnd_value = prior()
 
         if self.random_physics and epoch_num is not None and epoch_num % self.randomise_every_n_epoch == 0:
             self.logger.info('Epoch %s Generating new friction coefficient: %.2f' % (epoch_num, rnd_value))

@@ -124,7 +124,8 @@ class DDPG(object):
         ret = self.sess.run(vals, feed_dict=feed)
         # action postprocessing
         u = ret[0]
-        u = noise_fn(u, noise_eps, random_eps, self.max_u)
+        if noise_fn is not None:
+            u = noise_fn(u, noise_eps, random_eps, self.max_u)
 
         if u.shape[0] == 1:
             u = u[0]

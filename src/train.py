@@ -16,7 +16,7 @@ from mpi4py import MPI
 from src.utils import logger
 from src.utils.util import set_global_seeds
 from src.utils.util import mpi_average
-
+from src.utils import helper
 
 from src.buffer.episode_rollout import EpisodeRollout
 from src.utils.util import mpi_fork
@@ -27,13 +27,23 @@ from src.buffer.her import HindisghtExperienceReplay
 from src.models.ddpg import DDPG
 
 from src.config import simple_goal_subtract
-
+import torch
 
 def train(policy, rollout_worker, evaluator,
           n_epochs, n_test_rollouts, n_cycles, n_batches, policy_save_interval,
-          save_policies, **kwargs):
+          save_policies, mdn_prior=None, **kwargs):
 
+    if mdn_prior is not None:
+        mdn = helper.load(mdn_prior)
+        x_obs = torch.from_numpy(np.float32(np.array([0.57546])))
+        friction_arr = []
+        posterior = mdn.get_mog(x_obs)
+        for ix in range(1000):
+            friction = posterior.gen()
+            friction_arr.append(friction)
+        print("Mean Friction from prior: {}"+np.mean(friction))
     rank = MPI.COMM_WORLD.Get_rank()
+
 
     latest_policy_path = os.path.join(logger.get_dir(), 'policy_latest.pkl')
     best_policy_path = os.path.join(logger.get_dir(), 'policy_best.pkl')
@@ -44,6 +54,7 @@ def train(policy, rollout_worker, evaluator,
     for epoch in range(n_epochs):
         # train
         rollout_worker.clear_history()
+        # rollout_worker.set_physics(epoch, prior=posterior.gen)
         rollout_worker.set_physics(epoch)
         for _ in range(n_cycles):
             episode = rollout_worker.generate_rollouts()
@@ -116,7 +127,7 @@ def set_params(env, replay_strategy, override_params):
 def launch(env, logdir, n_epochs, num_cpu, seed,
            replay_strategy, policy_save_interval, clip_return, random_physics,
            lower_bound, upper_bound, randomise_every_n_epoch,
-           override_params={}, save_policies=True):
+           override_params={}, save_policies=True, mdn_prior=None):
 
     now = datetime.datetime.now()
     logdir += "/" + env + "/" + str(now.strftime("%Y-%m-%d-%H:%M"))
@@ -147,8 +158,8 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
         'compute_Q': False,
         'max_episode_steps': params['max_episode_steps'],
         'random_physics': random_physics,
-        'rnd_phys_lower_bound': lower_bound,
-        'rnd_phys_upper_bound': upper_bound,
+        'lower_bound': lower_bound,
+        'upper_bound': upper_bound,
         'randomise_every_n_epoch': randomise_every_n_epoch
     }
 
@@ -220,29 +231,32 @@ def launch(env, logdir, n_epochs, num_cpu, seed,
     train(logdir=logdir, policy=policy, rollout_worker=rollout_worker,
           evaluator=evaluator, n_epochs=n_epochs, n_test_rollouts=params['n_test_rollouts'],
           n_cycles=params['n_cycles'], n_batches=params['n_batches'],
-          policy_save_interval=policy_save_interval, save_policies=save_policies)
+          policy_save_interval=policy_save_interval, save_policies=save_policies,
+          mdn_prior=mdn_prior)
 
 
 @click.command()
-@click.option('--random_physics', type=bool, default=True)
+@click.option('--random_physics', type=bool, default=False)
 @click.option('--lower_bound', type=float, default=0.1)
-@click.option('--upper_bound', type=float, default=2.0)
-@click.option('--randomise_every_n_epoch', type=int, default=25)
+@click.option('--upper_bound', type=float, default=1.0)
+@click.option('--randomise_every_n_epoch', type=int, default=10)
 
 @click.option('--env', type=str, default='FetchPush-v1',
               help='the name of the OpenAI Gym environment that you want to train on')
 
 @click.option('--logdir', type=str, default="logs",
               help='the path to where logs and policy pickles should go. If not specified, creates a folder in /tmp/')
-@click.option('--n_epochs', type=int, default=5000, help='the number of training epochs to run')
-@click.option('--num_cpu', type=int, default=4, help='the number of CPU cores to use (using MPI)')
+@click.option('--n_epochs', type=int, default=200, help='the number of training epochs to run')
+@click.option('--num_cpu', type=int, default=6, help='the number of CPU cores to use (using MPI)')
 @click.option('--seed', type=int, default=0,
               help='the random seed used to seed both the environment and the training code')
-@click.option('--policy_save_interval', type=int, default=5,
+@click.option('--policy_save_interval', type=int, default=10,
               help='the interval with which policy pickles are saved. If set to 0, only the best and latest policy will be pickled.')
 @click.option('--replay_strategy', type=click.Choice(['future', 'none']), default='future',
               help='the HER replay strategy to be used. "future" uses HER, "none" disables HER.')
 @click.option('--clip_return', type=int, default=1, help='whether or not returns should be clipped')
+@click.option('--mdn_prior', type=str, default=None, help='Friction Prior')
+
 def main(**kwargs):
     launch(**kwargs)
 
